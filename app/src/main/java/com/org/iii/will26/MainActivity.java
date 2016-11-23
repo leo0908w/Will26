@@ -2,17 +2,31 @@ package com.org.iii.will26;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewDebug;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.LinkedList;
+import java.util.logging.Handler;
 
 public class MainActivity extends AppCompatActivity {
     private GridView gridView;
@@ -23,14 +37,17 @@ public class MainActivity extends AppCompatActivity {
             R.drawable.a4, R.drawable.a5, R.drawable.a6,
             R.drawable.a7, R.drawable.a8, R.drawable.a9,
             R.drawable.a10 };
+    private LinkedList<String> foodNo;
+    private UIHandler handler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        handler = new UIHandler();
         gridView = (GridView) findViewById(R.id.gridView);
-        initGridView();
+        getJSON();
     }
 
     private void initGridView() {
@@ -43,6 +60,46 @@ public class MainActivity extends AppCompatActivity {
                 Log.v("will", "i = " + i);
             }
         });
+
+    }
+
+    private void getJSON() {
+        new Thread() {
+            @Override
+            public void run() {
+                try {
+                    URL url = new URL("http://data.fda.gov.tw/cacheData/19_3.json");
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.connect();
+                    BufferedReader reader =
+                            new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    String line = reader.readLine();
+                    reader.close();
+
+                    parseJSON(line);
+                } catch (Exception e) {
+                    Log.v("will", e.toString());
+                }
+            }
+        }.start();
+    }
+
+    private void parseJSON(String json) {
+        foodNo = new LinkedList<>();
+        try {
+            JSONArray root = new JSONArray(json);
+            for (int i=0; i < root.length(); i++) {
+                JSONArray sub = root.getJSONArray(i);
+                JSONObject noObj = sub.getJSONObject(0);
+                String StringNo = noObj.getString("許可證字號");
+                Log.v("will", StringNo);
+
+                foodNo.add(StringNo);
+            }
+            handler.sendEmptyMessage(0);
+        } catch (Exception e) {
+            Log.v("will", e.toString());
+        }
 
     }
 
@@ -92,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public int getCount() {
-            return imgs.length;
+            return 30;
         }
 
         @Override
@@ -117,8 +174,8 @@ public class MainActivity extends AppCompatActivity {
                 img.setImageResource(R.drawable.b0);
             }
 
-            img.setImageResource(imgs[i]);
-            title.setText("imgs: " + i);
+            img.setImageResource(imgs[(int)(Math.random()*10)]);
+            title.setText(foodNo.get(i));
 
             if (i % 2 == 0) {
                 view.setBackgroundColor(Color.YELLOW);
@@ -127,7 +184,14 @@ public class MainActivity extends AppCompatActivity {
             }
             return view;
         }
+    }
 
+    private class UIHandler extends android.os.Handler {
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            initGridView();
+        }
     }
 }
 
